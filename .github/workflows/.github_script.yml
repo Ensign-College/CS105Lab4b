@@ -1,0 +1,52 @@
+name: PR Comment
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Python script
+        id: run-script
+        run: |
+          wget https://raw.githubusercontent.com/Ensign-College/CS105_Tests/main/Lab4bTest.py
+          result=$(python Lab4bTest.py)
+          if [[ $result == *"Well done!"* ]]; then
+              echo "::set-output name=script-output::Script Lab4bTest.py executed successfully with output: $result"
+          else
+              echo "::set-output name=script-output::Script Lab4bTest.py failed with output: $result"
+          fi
+
+      - name: Comment on PR
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const issue_number = context.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const script_output = "${{ steps.run-script.outputs['script-output'] }}";
+            console.log('script_output: ' + script_output);
+            if (script_output) {
+              await github.rest.issues.createComment({
+                owner: owner,
+                repo: repo,
+                issue_number: issue_number,
+                body: script_output
+              });
+            }
+            else {
+              console.log('No script output to comment.');
+            }
